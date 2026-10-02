@@ -37,7 +37,7 @@ st.set_page_config(
     page_title="SWarden – Zero-Trust Auditor",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ── Inline dark-mode CSS (premium overhaul) ──────────────────────────────
@@ -78,6 +78,22 @@ st.markdown(
     .pill{display:inline-block;padding:.2rem .65rem;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.04em;}
     .pill-green{background:#1f4a26;color:#56d364;border:1px solid #2ea043;}
     .pill-red{background:#3d0014;color:#f85149;border:1px solid #f85149;}
+    .stButton>button {
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        border-color: #29B5E8 !important;
+        color: #29B5E8 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(41, 181, 232, 0.25);
+    }
+    [data-testid="stDataFrame"] {
+        transition: transform 0.2s ease;
+    }
+    [data-testid="stDataFrame"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -302,179 +318,131 @@ def run_cortex_ai(conn, event: dict) -> str:
             "and that llama3.1-8b is an enabled model."
         )
 
-
-# ── Main UI ───────────────────────────────────────────────────────────────────
+# ── Main UI ───────────────────────────────────────────────────────────────────────────────────
 def main():
-    # ── App header ──────────────────────────────────────────────────────────
+    import pandas as pd
+    import os
+
+    # ── Sidebar ────────────────────────────────────────────
+    with st.sidebar:
+        st.markdown("### 🛡️ SWarden Control Center")
+        st.success("Database: Connected (RSA Secure)")
+        st.info("Cortex AI: Online (Llama 3.1 8B)")
+        st.caption("Telemetry: IPinfo Marketplace Active")
+
+    # ── Page Header ────────────────────────────────────────────────────────────────────────────────────
     st.markdown(
         """
-        <div style="text-align:center; padding: 1.2rem 0 .6rem;">
-            <h1 style="font-size:2rem; font-weight:800; color:#f0f6fc; margin:0;">
-                🛡️ SWarden: Zero-Trust Threat &amp; Exfiltration Auditor
-            </h1>
-            <p style="color:#8b949e; margin:.4rem 0 0; font-size:.95rem;">
-                Powered by Snowflake Cortex AI (Llama 3.1), Snowflake CoCo, and IPinfo Marketplace Data
-            </p>
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 2rem;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+                <h1 style="font-size: 5.5rem; margin: 0; color: #FFFFFF;">SWarden</h1>
+                <span style="font-size: 7.5rem; transform: translateY(15px);">🛡️</span>
+            </div>
+            <h2 style="font-size: 1.8rem; color: #A3B8CC; font-weight: 400; margin-top: 15px;">Zero-Trust Threat & Exfiltration Auditor</h2>
+            <div style="margin-top: 20px; background: rgba(41, 181, 232, 0.1); border: 1px solid #29B5E8; color: #29B5E8; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; letter-spacing: 1.5px; box-shadow: 0 0 10px rgba(41, 181, 232, 0.2);">
+                SYSTEM ONLINE • RSA SECURE CONNECTION
+            </div>
         </div>
-        <hr style="border:none; border-top:1px solid #21262d; margin:.8rem 0 1.4rem;">
         """,
         unsafe_allow_html=True,
     )
 
-    # ── Connection status badge ──────────────────────────────────────────────
-    env_ok = all([SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER]) and os.path.exists(RSA_KEY_PATH)
-    badge = (
-        '<span class="pill pill-green">&#9679; ENV LOADED</span>'
-        if env_ok
-        else '<span class="pill pill-red">&#9679; ENV MISSING</span>'
-    )
-    st.markdown(
-        f"<div style='margin-bottom:.8rem;'>{badge} &nbsp;"
-        f"Account: <code style='color:#79c0ff;'>{SNOWFLAKE_ACCOUNT or '—'}</code> &nbsp;|&nbsp; "
-        f"Warehouse: <code style='color:#79c0ff;'>{SNOWFLAKE_WAREHOUSE}</code> &nbsp;|&nbsp; "
-        f"Role: <code style='color:#79c0ff;'>{SNOWFLAKE_ROLE}</code></div>",
-        unsafe_allow_html=True,
-    )
+    # ════════════════════════════════════════════════════════════════════════════
+    # Active Threat Monitor
+    # ════════════════════════════════════════════════════════════════════════════
+    st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+    run_scan = st.button("🔍 Run Threat Scan", key="btn_scan")
 
-    # ── 2-column layout (60 / 40) ────────────────────────────────────────────
-    col_left, col_right = st.columns([3, 2], gap="large")
+    if run_scan:
+        conn = get_db_connection()
+        if conn:
+            with st.spinner("Executing CoCo threat-intel query…"):
+                records = fetch_threat_intel(conn)
+            if records:
+                st.session_state["records"] = records
+                st.session_state.pop("ai_response", None)
+            else:
+                st.warning("0 rows returned. Check table population.", icon="📭")
 
-    # ════════════════════════════════════════════════════════════════════════
-    # LEFT COLUMN — 📡 Live Network Intent Monitor
-    # ════════════════════════════════════════════════════════════════════════
-    with col_left:
+    records = st.session_state.get("records", [])
+
+    if not records:
         st.markdown(
-            '<div class="section-title">📡 Live Network Intent Monitor</div>',
+            """
+            <div style="text-align:center;padding:4rem 2rem;color:#6e7681;">
+                <div style="font-size:3rem;margin-bottom:.75rem;">🛡️</div>
+                <div style="font-size:1.1rem;font-weight:600;color:#8b949e;">No scan data yet</div>
+                <div style="font-size:.88rem;margin-top:.4rem;">
+                    Click <strong style="color:#58a6ff;">Run Threat Scan</strong> above to pull live telemetry.
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
+    else:
+        col1, col2 = st.columns([6, 4], gap="large")
 
-        run_scan = st.button("🔍 Run Threat Scan", key="btn_scan")
-
-        if run_scan:
-            conn = get_db_connection()
-            if conn:
-                with st.spinner("Executing CoCo threat-intel query against Snowflake…"):
-                    records = fetch_threat_intel(conn)
-                if records:
-                    st.session_state["records"] = records
-                    st.success(f"✅ Scan complete — {len(records)} sessions retrieved.", icon="🛰️")
-                else:
-                    st.warning("Query returned 0 rows. Check table population.", icon="📭")
-
-        records = st.session_state.get("records", [])
-
-        if records:
-            import pandas as pd
-
+        with col1:
+            st.markdown('<div class="section-title">📡 Live Network Intent Monitor</div>', unsafe_allow_html=True)
             df = pd.DataFrame(records)
-
-            # Display interactive dataframe with human-readable column config
             st.dataframe(
                 df,
                 width="stretch",
                 hide_index=True,
                 column_config={
-                    "event_time": st.column_config.DatetimeColumn(
-                        "Event Time",
-                        format="YYYY-MM-DD HH:mm:ss",
-                    ),
-                    "username": st.column_config.TextColumn("User"),
-                    "role_used": st.column_config.TextColumn("Target Role"),
-                    "client_ip": st.column_config.TextColumn("Client IP"),
-                    "query_text": st.column_config.TextColumn(
-                        "Query Preview",
-                        max_chars=60,
-                    ),
-                    "rows_scanned": st.column_config.NumberColumn(
-                        "Rows Scanned",
-                        format="%d",
-                    ),
-                    "country": st.column_config.TextColumn("Country"),
-                    "asn_name": st.column_config.TextColumn("ASN / Carrier"),
-                    "risk_score": st.column_config.ProgressColumn(
-                        "Risk Score",
-                        min_value=0,
-                        max_value=100,
-                        format="%f",
-                    ),
+                    "event_time":   st.column_config.DatetimeColumn("Event Time", format="YYYY-MM-DD HH:mm:ss"),
+                    "username":     st.column_config.TextColumn("User"),
+                    "role_used":    st.column_config.TextColumn("Target Role"),
+                    "client_ip":    st.column_config.TextColumn("Client IP"),
+                    "query_text":   st.column_config.TextColumn("Query Preview", max_chars=60),
+                    "rows_scanned": st.column_config.NumberColumn("Rows Scanned", format="%d"),
+                    "country":      st.column_config.TextColumn("Country"),
+                    "asn_name":     st.column_config.TextColumn("ASN / Carrier"),
+                    "risk_score":   st.column_config.ProgressColumn("Risk Score", min_value=0, max_value=100, format="%f"),
                 },
             )
 
-            # ── Summary metrics ──────────────────────────────────────────
-            total_sessions = len(records)
-            critical_count = sum(1 for r in records if (r.get("risk_score") or 0) >= 65)
+            total  = len(records)
+            crits  = sum(1 for r in records if (r.get("risk_score") or 0) >= 65)
             scores = [r.get("risk_score") or 0 for r in records]
-            avg_score = round(sum(scores) / len(scores), 1) if scores else 0
+            avg    = round(sum(scores) / len(scores), 1) if scores else 0
 
             st.markdown(
                 f"""
                 <div class="metric-row">
                     <div class="metric-card">
-                        <div class="val">{total_sessions}</div>
+                        <div class="val">{total}</div>
                         <div class="lbl">Sessions Scanned</div>
                     </div>
                     <div class="metric-card danger">
-                        <div class="val">{critical_count}</div>
+                        <div class="val">{crits}</div>
                         <div class="lbl">Critical Alerts (&ge;65)</div>
                     </div>
                     <div class="metric-card warn">
-                        <div class="val">{avg_score}</div>
+                        <div class="val">{avg}</div>
                         <div class="lbl">Avg Risk Score</div>
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-        else:
-            st.markdown(
-                '<div style="color:#8b949e; padding:2rem; text-align:center;">'
-                '⬆️ Click <strong>Run Threat Scan</strong> to pull live telemetry from Snowflake.'
-                '</div>',
-                unsafe_allow_html=True,
-            )
 
-    # ════════════════════════════════════════════════════════════════════════
-    # RIGHT COLUMN — 🤖 Cortex AI SecOps Engine
-    # ════════════════════════════════════════════════════════════════════════
-    with col_right:
-        st.markdown(
-            '<div class="section-title">🤖 Cortex AI SecOps Engine</div>',
-            unsafe_allow_html=True,
-        )
-
-        records = st.session_state.get("records", [])
-
-        if not records:
-            st.markdown(
-                '<div style="color:#8b949e; padding:2rem; text-align:center;">'
-                '⬅️ Run a Threat Scan first to enable AI analysis.'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            # Auto-select highest risk session & serialise all fields
+        with col2:
+            st.markdown('<div class="section-title">🤖 Cortex AI SecOps Engine</div>', unsafe_allow_html=True)
             top_event_raw = max(records, key=lambda r: r.get("risk_score") or 0)
             top_event     = _serialize_row(top_event_raw)
             top_score     = top_event.get("risk_score") or 0
 
-            # ── Critical warning banner ──────────────────────────────────
             if top_score >= 65:
                 st.markdown(
-                    f'<div class="alert-critical">'
-                    f'🚨 CRITICAL THREAT DETECTED: Risk Score {top_score}/100'
-                    f'</div>',
+                    f'<div class="alert-critical">🚨 CRITICAL THREAT DETECTED: Risk Score {top_score}/100</div>',
                     unsafe_allow_html=True,
                 )
             else:
-                st.info(
-                    f"ℹ️ Highest risk score: **{top_score}/100** — below critical threshold (65).",
-                    icon="🔵",
-                )
+                st.info(f"ℹ️ Highest risk score: **{top_score}/100** — below threshold (65).", icon="🔵")
 
-            # ── Threat Dossier ─────────────────────────────────────────────
             st.markdown(
-                '<div class="section-title" style="margin-top:.5rem;">'
-                '📋 Threat Dossier — Highest-Risk Actor</div>',
+                '<div class="section-title" style="margin-top:.5rem;">📋 Threat Dossier — Highest-Risk Actor</div>',
                 unsafe_allow_html=True,
             )
             m1, m2 = st.columns(2)
@@ -485,38 +453,39 @@ def main():
                 delta="CRITICAL" if top_score >= 65 else "ELEVATED",
                 delta_color="inverse" if top_score >= 65 else "off",
             )
+
             rows_val = top_event.get("rows_scanned", 0)
             rows_fmt = f"{int(rows_val):,}" if isinstance(rows_val, (int, float)) else str(rows_val)
+
             st.markdown(
                 f"""
-                <div class=\"dossier\">
-                    <div class=\"dossier-row\">
-                        <div><div class=\"dossier-label\">Origin Country</div>
-                             <div class=\"dossier-value highlight\">{top_event.get('country', 'Unknown')}</div></div>
-                        <div><div class=\"dossier-label\">Rogue IP Address</div>
-                             <div class=\"dossier-value ip\">{top_event.get('client_ip', '—')}</div></div>
+                <div class="dossier">
+                    <div class="dossier-row">
+                        <div><div class="dossier-label">Origin Country</div>
+                             <div class="dossier-value highlight">{top_event.get('country', 'Unknown')}</div></div>
+                        <div><div class="dossier-label">Rogue IP Address</div>
+                             <div class="dossier-value ip">{top_event.get('client_ip', '—')}</div></div>
                     </div>
-                    <div class=\"dossier-row\">
-                        <div><div class=\"dossier-label\">ASN Infrastructure</div>
-                             <div class=\"dossier-value\">{top_event.get('asn_name', 'Unknown')}</div></div>
-                        <div><div class=\"dossier-label\">Rows Exfiltrated</div>
-                             <div class=\"dossier-value\" style=\"color:#f85149;font-weight:800;\">{rows_fmt}</div></div>
+                    <div class="dossier-row">
+                        <div><div class="dossier-label">ASN Infrastructure</div>
+                             <div class="dossier-value">{top_event.get('asn_name', 'Unknown')}</div></div>
+                        <div><div class="dossier-label">Rows Exfiltrated</div>
+                             <div class="dossier-value" style="color:#f85149;font-weight:800;">{rows_fmt}</div></div>
                     </div>
-                    <hr class=\"dossier-divider\">
-                    <div class=\"dossier-row full\">
-                        <div><div class=\"dossier-label\">Abused Role</div>
-                             <div class=\"dossier-value role\">{top_event.get('role_used', '—')}</div></div>
+                    <hr class="dossier-divider">
+                    <div class="dossier-row full">
+                        <div><div class="dossier-label">Abused Role</div>
+                             <div class="dossier-value role">{top_event.get('role_used', '—')}</div></div>
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+
             query_preview = str(top_event.get("query_text") or "— no query captured —")
-            st.markdown(
-                '<div class="dossier-label" style="margin-bottom:.35rem;">🔎 Captured Query</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown('<div class="dossier-label" style="margin-bottom:.35rem;">🔎 Captured Query</div>', unsafe_allow_html=True)
             st.code(query_preview, language="sql")
+
             st.markdown("<div style='margin-top:.5rem;'></div>", unsafe_allow_html=True)
             gen_response = st.button(
                 "⚡ INITIATE CORTEX AI LOCKDOWN",
@@ -527,20 +496,172 @@ def main():
             if gen_response:
                 conn = get_db_connection()
                 if conn:
-                    with st.spinner(
-                        "Calling SNOWFLAKE.CORTEX.COMPLETE('llama3.1-8b', …) inside warehouse…"
-                    ):
+                    with st.spinner("Calling SNOWFLAKE.CORTEX.COMPLETE('llama3.1-8b', …) inside warehouse…"):
                         ai_text = run_cortex_ai(conn, top_event)
                     st.session_state["ai_response"] = ai_text
+
             if "ai_response" in st.session_state:
                 st.markdown("---")
-                st.markdown(
-                    '<div class="section-title">🧠 Llama 3.1 Incident Report</div>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown('<div class="section-title">🧠 Llama 3.1 Incident Report</div>', unsafe_allow_html=True)
                 st.markdown(st.session_state["ai_response"])
 
+    # ════════════════════════════════════════════════════════════════════════════
+    # Cortex SecOps Copilot (Text-to-SQL chat interface)
+    # ════════════════════════════════════════════════════════════════════════════
+    st.divider()
 
-# ── Entrypoint ────────────────────────────────────────────────────────────────
+    if "records" not in st.session_state or not st.session_state["records"]:
+        st.info("ℹ️ Run a Threat Scan above to initialize the Cortex AI Copilot.")
+    else:
+        with st.expander("🤖 Chat with Cortex SecOps Copilot", expanded=True):
+            st.markdown(
+                """
+                <div style="padding:0 0 1rem;">
+                    <p style="color:#8b949e;font-size:.88rem;margin:0;">
+                        Ask Cortex AI to query your security logs in plain English.
+                        The Copilot translates your question into Snowflake SQL and executes it live.
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if "copilot_messages" not in st.session_state:
+                st.session_state["copilot_messages"] = []
+
+            for msg in st.session_state["copilot_messages"]:
+                with st.chat_message(msg["role"], avatar="🛡️" if msg["role"] == "assistant" else "👤"):
+                    st.markdown(msg["content"])
+                    if "dataframe" in msg:
+                        st.dataframe(
+                            msg["dataframe"],
+                            width="stretch",
+                            hide_index=True,
+                            column_config={
+                                "risk_score": st.column_config.ProgressColumn("Risk Score", min_value=0, max_value=100, format="%f"),
+                                "rows_scanned": st.column_config.NumberColumn("Rows Scanned", format="%d"),
+                                "event_time": st.column_config.DatetimeColumn("Event Time", format="YYYY-MM-DD HH:mm:ss"),
+                            },
+                        )
+                    if "sql" in msg:
+                        with st.expander("📄 Generated SQL", expanded=False):
+                            st.code(msg["sql"], language="sql")
+
+            user_q = st.chat_input("Ask Cortex to query your security logs (e.g. 'Show me admin logins from non-US IPs')…")
+
+            if user_q:
+                st.session_state["copilot_messages"].append({"role": "user", "content": user_q})
+                with st.chat_message("user", avatar="👤"):
+                    st.write(user_q)
+
+                conn = get_db_connection()
+                if not conn:
+                    with st.chat_message("assistant", avatar="🛡️"):
+                        st.error("No Snowflake connection. Run the Threat Scan first to establish a connection.", icon="🔌")
+                else:
+                    escaped_q = user_q.replace("'", "''")
+                    prompt = f"""
+You are a Snowflake SQL expert. Generate ONLY a valid Snowflake SQL query based on the user's request. Do not include markdown formatting, backticks, or explanations.
+Always use the fully qualified table names SWARDEN_DB.PUBLIC.SESSION_ACTIVITY and IPINFO_LITE.PUBLIC.LITE. Never use unqualified table names.
+
+Schema:
+Table: SWARDEN_DB.PUBLIC.SESSION_ACTIVITY
+Columns: event_time (TIMESTAMP), username (VARCHAR), role_used (VARCHAR), client_ip (VARCHAR), query_text (VARCHAR), rows_scanned (NUMBER)
+
+User Request: {escaped_q}
+
+SQL Query:
+"""
+                    cortex_prompt = prompt.replace("'", "''")
+                    cortex_sql_req = f"SELECT SNOWFLAKE.CORTEX.COMPLETE('llama3.1-8b', '{cortex_prompt}') AS sql_output"
+
+                    with st.spinner("🧠 Cortex is translating your question into SQL…"):
+                        try:
+                            cur = conn.cursor()
+                            cur.execute(cortex_sql_req)
+                            row = cur.fetchone()
+                            cur.close()
+                            ai_sql = (row[0] or "").strip() if row else ""
+
+                            ai_sql = ai_sql.replace("```sql", "").replace("```", "").strip()
+
+                        except Exception as exc:
+                            ai_sql = ""
+                            with st.chat_message("assistant", avatar="🛡️"):
+                                st.error(f"Cortex AI call failed: {exc}", icon="🧠")
+                            st.session_state["copilot_messages"].append({
+                                "role": "assistant",
+                                "content": f"❌ Cortex AI call failed: {exc}",
+                            })
+                            st.stop()
+
+                    result_df = None
+                    exec_error = None
+                    if ai_sql:
+                        try:
+                            cur2 = conn.cursor()
+                            cur2.execute(ai_sql)
+                            cols = [d[0].lower() for d in cur2.description]
+                            rows = cur2.fetchall()
+                            cur2.close()
+                            import pandas as pd
+                            result_df = pd.DataFrame(rows, columns=cols)
+                        except Exception as exc:
+                            exec_error = str(exc)
+
+                    with st.chat_message("assistant", avatar="🛡️"):
+                        if exec_error:
+                            reply = (
+                                f"⚠️ The generated SQL could not be executed:\n\n"
+                                f"**Error:** `{exec_error}`\n\n"
+                                f"Try rephrasing your question or be more specific about the columns you need."
+                            )
+                            st.markdown(reply)
+                            with st.expander("📄 Attempted SQL", expanded=True):
+                                st.code(ai_sql, language="sql")
+                            st.session_state["copilot_messages"].append({
+                                "role": "assistant",
+                                "content": reply,
+                                "sql": ai_sql,
+                            })
+                        elif result_df is not None and not result_df.empty:
+                            reply = f"✅ Query returned **{len(result_df)} row(s)**."
+                            st.markdown(reply)
+                            st.dataframe(
+                                result_df,
+                                width="stretch",
+                                hide_index=True,
+                                column_config={
+                                    "risk_score": st.column_config.ProgressColumn("Risk Score", min_value=0, max_value=100, format="%f"),
+                                    "rows_scanned": st.column_config.NumberColumn("Rows Scanned", format="%d"),
+                                    "event_time": st.column_config.DatetimeColumn("Event Time", format="YYYY-MM-DD HH:mm:ss"),
+                                },
+                            )
+                            with st.expander("📄 Generated SQL", expanded=False):
+                                st.code(ai_sql, language="sql")
+                            st.session_state["copilot_messages"].append({
+                                "role": "assistant",
+                                "content": reply,
+                                "sql": ai_sql,
+                                "dataframe": result_df,
+                            })
+                        elif result_df is not None and result_df.empty:
+                            reply = "📭 The query executed successfully but returned 0 rows."
+                            st.markdown(reply)
+                            with st.expander("📄 Generated SQL", expanded=False):
+                                st.code(ai_sql, language="sql")
+                            st.session_state["copilot_messages"].append({
+                                "role": "assistant",
+                                "content": reply,
+                                "sql": ai_sql,
+                            })
+                        else:
+                            reply = "⚠️ Cortex returned an empty response. Please try again."
+                            st.markdown(reply)
+                            st.session_state["copilot_messages"].append({
+                                "role": "assistant",
+                                "content": reply,
+                            })
+
 if __name__ == "__main__":
     main()
