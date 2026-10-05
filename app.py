@@ -334,12 +334,14 @@ def main():
     st.markdown(
         """
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 2rem;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
-                <h1 style="font-size: 5.5rem; margin: 0; color: #FFFFFF;">SWarden</h1>
-                <span style="font-size: 7.5rem; transform: translateY(15px);">🛡️</span>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 30px;">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center;">
+                    <h1 style="font-size: 6rem; margin: 0; color: #FFFFFF; line-height: 1;">SWarden</h1>
+                    <h2 style="font-size: 1.6rem; color: #A3B8CC; font-weight: 400; margin-top: 8px; margin-bottom: 0;">Zero-Trust Threat & Exfiltration Auditor</h2>
+                </div>
+                <span style="font-size: 8rem; line-height: 1;">🛡️</span>
             </div>
-            <h2 style="font-size: 1.8rem; color: #A3B8CC; font-weight: 400; margin-top: 15px;">Zero-Trust Threat & Exfiltration Auditor</h2>
-            <div style="margin-top: 20px; background: rgba(41, 181, 232, 0.1); border: 1px solid #29B5E8; color: #29B5E8; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; letter-spacing: 1.5px; box-shadow: 0 0 10px rgba(41, 181, 232, 0.2);">
+            <div style="margin-top: 30px; background: rgba(41, 181, 232, 0.1); border: 1px solid #29B5E8; color: #29B5E8; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; letter-spacing: 1.5px; box-shadow: 0 0 10px rgba(41, 181, 232, 0.2);">
                 SYSTEM ONLINE • RSA SECURE CONNECTION
             </div>
         </div>
