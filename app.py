@@ -334,10 +334,10 @@ def main():
     st.markdown(
         """
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 2rem;">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 30px;">
-                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
                     <h1 style="font-size: 6rem; margin: 0; color: #FFFFFF; line-height: 1;">SWarden</h1>
-                    <h2 style="font-size: 1.6rem; color: #A3B8CC; font-weight: 400; margin-top: 8px; margin-bottom: 0;">Zero-Trust Threat & Exfiltration Auditor</h2>
+                    <h2 style="font-size: 1.6rem; color: #A3B8CC; font-weight: 400; margin-top: 2px; margin-bottom: 0;">Zero-Trust Threat & Exfiltration Auditor</h2>
                 </div>
                 <span style="font-size: 8rem; line-height: 1;">🛡️</span>
             </div>
